@@ -7,19 +7,27 @@ jobs:
   tailscale:
     runs-on: ubuntu-latest
     steps:
-      - name: Stop Docker (мешает форвардингу трафика)
+      - name: Stop Docker (мешает форвардингу)
         run: |
           sudo systemctl stop docker.socket docker.service
           sudo systemctl disable docker.socket docker.service || true
 
-      - name: Install Tailscale
-        run: curl -fsSL https://tailscale.com/install.sh | sh
-
-      - name: Enable IP forwarding
+      - name: Enable IP forwarding and NAT
         run: |
+          # Включаем IP forwarding
           echo 'net.ipv4.ip_forward = 1' | sudo tee -a /etc/sysctl.d/99-tailscale.conf
           echo 'net.ipv6.conf.all.forwarding = 1' | sudo tee -a /etc/sysctl.d/99-tailscale.conf
           sudo sysctl -p /etc/sysctl.d/99-tailscale.conf
+
+          # Определяем внешний интерфейс
+          IFACE=$(ip route show default | awk '{print $5}')
+          echo "Default interface: $IFACE"
+
+          # Добавляем NAT для всей Tailscale-сети (100.64.0.0/10)
+          sudo iptables -t nat -A POSTROUTING -s 100.64.0.0/10 -o "$IFACE" -j MASQUERADE
+
+      - name: Install Tailscale
+        run: curl -fsSL https://tailscale.com/install.sh | sh
 
       - name: Connect as exit node
         run: |
