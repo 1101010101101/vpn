@@ -5,6 +5,9 @@ jobs:
   tailscale:
     runs-on: ubuntu-latest
     steps:
+      - name: Stop Docker (не нужен в этой задаче, конфликтует с forwarding)
+        run: sudo systemctl stop docker.socket docker.service
+
       - name: Install Tailscale
         run: curl -fsSL https://tailscale.com/install.sh | sh
 
