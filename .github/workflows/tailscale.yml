@@ -1,4 +1,4 @@
-name: Tailscale Exit Node
+name: Tailscale Exit Node (TEST)
 
 on:
   workflow_dispatch:
@@ -11,7 +11,7 @@ jobs:
         run: |
           curl -fsSL https://tailscale.com/install.sh | sh
           sudo tailscale up \
-            --authkey=${{ secrets.TAILSCALE_AUTHKEY }} \
+            --authkey=tskey-auth-kerErdn2gE11CNTRL-wz8tLhnDs2216hcK4A3m22mmcbRaPkfWg \
             --hostname=gh-runner \
             --advertise-exit-node
           sleep 6h
