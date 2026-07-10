@@ -1,10 +1,10 @@
-name: Tailscale VPN (exit node)
+name: Tailscale Exit Node
 
 on:
-  workflow_dispatch:  # запуск вручную
+  workflow_dispatch:
 
 jobs:
-  run-exit-node:
+  tailscale:
     runs-on: ubuntu-latest
     steps:
       - name: Install and connect Tailscale
@@ -14,5 +14,4 @@ jobs:
             --authkey=${{ secrets.TAILSCALE_AUTHKEY }} \
             --hostname=gh-runner \
             --advertise-exit-node
-          # Ждём 6 часов (максимальное время для публичного репозитория)
-          sleep 21600
+          sleep 6h
