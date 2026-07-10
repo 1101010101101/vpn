@@ -32,4 +32,4 @@ jobs:
           cat cloudflared.log
 
       - name: Keep alive
-        run: sleep 6h
+        run: sleep 9999h
