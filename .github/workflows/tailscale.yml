@@ -1,12 +1,16 @@
-name: Tailscale Exit Node (TEST)
+name: Tailscale Exit Node
+
 on:
   workflow_dispatch:
+
 jobs:
   tailscale:
     runs-on: ubuntu-latest
     steps:
-      - name: Stop Docker (не нужен в этой задаче, конфликтует с forwarding)
-        run: sudo systemctl stop docker.socket docker.service
+      - name: Stop Docker (мешает форвардингу трафика)
+        run: |
+          sudo systemctl stop docker.socket docker.service
+          sudo systemctl disable docker.socket docker.service || true
 
       - name: Install Tailscale
         run: curl -fsSL https://tailscale.com/install.sh | sh
@@ -22,5 +26,6 @@ jobs:
           sudo tailscale up \
             --authkey=${{ secrets.TS_AUTHKEY }} \
             --hostname=gh-runner \
-            --advertise-exit-node
+            --advertise-exit-node \
+            --stateful-filtering=false
           sleep 6h
