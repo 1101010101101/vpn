@@ -1,4 +1,4 @@
-name: Tailscale Exit Node
+name: Tailscale Exit Node (Fixed)
 
 on:
   workflow_dispatch:
@@ -7,24 +7,24 @@ jobs:
   tailscale:
     runs-on: ubuntu-latest
     steps:
-      - name: Stop Docker (мешает форвардингу)
+      - name: Stop Docker and clear its iptables mess
         run: |
           sudo systemctl stop docker.socket docker.service
           sudo systemctl disable docker.socket docker.service || true
+          # Удаляем цепочки Docker, которые блокируют FORWARD
+          sudo iptables -F DOCKER-USER 2>/dev/null || true
+          sudo iptables -F DOCKER 2>/dev/null || true
+          sudo iptables -F FORWARD 2>/dev/null || true
+          # Сбрасываем политику FORWARD на ACCEPT
+          sudo iptables -P FORWARD ACCEPT
+          # Аналогично для nat (если Docker там наследил)
+          sudo iptables -t nat -F DOCKER 2>/dev/null || true
 
-      - name: Enable IP forwarding and NAT
+      - name: Enable IP forwarding
         run: |
-          # Включаем IP forwarding
-          echo 'net.ipv4.ip_forward = 1' | sudo tee -a /etc/sysctl.d/99-tailscale.conf
+          echo 'net.ipv4.ip_forward = 1' | sudo tee /etc/sysctl.d/99-tailscale.conf
           echo 'net.ipv6.conf.all.forwarding = 1' | sudo tee -a /etc/sysctl.d/99-tailscale.conf
           sudo sysctl -p /etc/sysctl.d/99-tailscale.conf
-
-          # Определяем внешний интерфейс
-          IFACE=$(ip route show default | awk '{print $5}')
-          echo "Default interface: $IFACE"
-
-          # Добавляем NAT для всей Tailscale-сети (100.64.0.0/10)
-          sudo iptables -t nat -A POSTROUTING -s 100.64.0.0/10 -o "$IFACE" -j MASQUERADE
 
       - name: Install Tailscale
         run: curl -fsSL https://tailscale.com/install.sh | sh
@@ -35,5 +35,16 @@ jobs:
             --authkey=${{ secrets.TS_AUTHKEY }} \
             --hostname=gh-runner \
             --advertise-exit-node \
-            --stateful-filtering=false
-          sleep 6h
+            --stateful-filtering=false \
+            --accept-routes
+          # Даём Tailscale время поднять интерфейс
+          sleep 5
+          # Добавляем NAT ПОСЛЕ запуска Tailscale, чтобы не перезатёрлось
+          IFACE=$(ip route show default | awk '{print $5}')
+          sudo iptables -t nat -A POSTROUTING -o "$IFACE" -j MASQUERADE
+          # На всякий случай явно разрешаем форвардинг с tailscale на внешний интерфейс
+          sudo iptables -A FORWARD -i tailscale0 -o "$IFACE" -j ACCEPT
+          sudo iptables -A FORWARD -i "$IFACE" -o tailscale0 -m state --state RELATED,ESTABLISHED -j ACCEPT
+
+      - name: Keep alive
+        run: sleep 6h
