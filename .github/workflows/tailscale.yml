@@ -1,4 +1,4 @@
-name: Tailscale SOCKS Proxy
+name: Cloudflare Tunnel SOCKS5 Proxy
 
 on:
   workflow_dispatch:
@@ -7,33 +7,27 @@ jobs:
   proxy:
     runs-on: ubuntu-latest
     steps:
-      - name: Install Tailscale
-        run: curl -fsSL https://tailscale.com/install.sh | sh
+      - name: Install cloudflared
+        uses: AnimMouse/setup-cloudflared@v2[reference:2][reference:3]
 
-      - name: Setup SSH server
+      - name: Start SSH server
         run: |
           sudo apt-get update && sudo apt-get install -y openssh-server
           sudo systemctl enable ssh
           sudo systemctl start ssh
-          # Разрешаем парольную аутентификацию (временно, или используй ключи)
           echo "PasswordAuthentication yes" | sudo tee -a /etc/ssh/sshd_config
           sudo systemctl restart ssh
 
-      - name: Create temporary user for SSH
+      - name: Create user for SSH
         run: |
           sudo useradd -m proxyuser
           echo "proxyuser:proxy123" | sudo chpasswd
-          sudo usermod -aG sudo proxyuser
 
-      - name: Connect Tailscale
+      - name: Start Cloudflare Tunnel
         run: |
-          sudo tailscale up \
-            --authkey=${{ secrets.TS_AUTHKEY }} \
-            --hostname=gh-proxy
+          nohup cloudflared tunnel --url ssh://localhost:22 &> cloudflared.log &
           sleep 5
-          # Выводим Tailscale IP раннера
-          echo "Proxy IP: $(tailscale ip -4)"
-          echo "SSH command: ssh -D 1080 proxyuser@$(tailscale ip -4)"
+          cat cloudflared.log
 
       - name: Keep alive
         run: sleep 6h
