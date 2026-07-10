@@ -1,17 +1,23 @@
 name: Tailscale Exit Node (TEST)
-
 on:
   workflow_dispatch:
-
 jobs:
   tailscale:
     runs-on: ubuntu-latest
     steps:
-      - name: Install and connect Tailscale
+      - name: Install Tailscale
+        run: curl -fsSL https://tailscale.com/install.sh | sh
+
+      - name: Enable IP forwarding
         run: |
-          curl -fsSL https://tailscale.com/install.sh | sh
+          echo 'net.ipv4.ip_forward = 1' | sudo tee -a /etc/sysctl.d/99-tailscale.conf
+          echo 'net.ipv6.conf.all.forwarding = 1' | sudo tee -a /etc/sysctl.d/99-tailscale.conf
+          sudo sysctl -p /etc/sysctl.d/99-tailscale.conf
+
+      - name: Connect as exit node
+        run: |
           sudo tailscale up \
-            --authkey=tskey-auth-kerErdn2gE11CNTRL-wz8tLhnDs2216hcK4A3m22mmcbRaPkfWg \
+            --authkey=${{ secrets.TS_AUTHKEY }} \
             --hostname=gh-runner \
             --advertise-exit-node
           sleep 6h
